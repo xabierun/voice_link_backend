@@ -10,7 +10,8 @@ import (
 	"testing"
 	"voice-link/domain/model"
 	"voice-link/infrastructure/persistence"
-	"voice-link/interface/handler"
+	"voice-link/interface/handler/auth"
+	"voice-link/interface/handler/user"
 	"voice-link/interface/router"
 	"voice-link/usecase"
 
@@ -43,13 +44,14 @@ func setupTestApp(t *testing.T) *echo.Echo {
 	// 依存関係の注入
 	userRepo := persistence.NewUserRepository(db)
 	userUseCase := usecase.NewUserUseCase(userRepo)
-	userHandler := handler.NewUserHandler(userUseCase)
+	authHandler := auth.NewAuthHandler(userUseCase)
+	userHandler := user.NewUserHandler(userUseCase)
 
 	// Echoのインスタンスを作成
 	e := echo.New()
 
 	// ルーティングの設定
-	r := router.NewRouter(e, userHandler)
+	r := router.NewRouter(e, authHandler, userHandler)
 	r.Setup()
 
 	return e
