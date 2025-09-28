@@ -42,6 +42,16 @@ func (r *userRepository) FindByEmail(email string) (*model.User, error) {
 	return &user, nil
 }
 
+// FindByPasswordResetToken は、指定されたパスワードリセットトークンのユーザーをデータベースから検索します
+func (r *userRepository) FindByPasswordResetToken(token string) (*model.User, error) {
+	var user model.User
+	if err := r.db.Where("password_reset_token = ?", token).First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // Update は、既存のユーザー情報をデータベースで更新します
 func (r *userRepository) Update(user *model.User) error {
 	return r.db.Save(user).Error
