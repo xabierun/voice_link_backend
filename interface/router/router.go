@@ -1,7 +1,8 @@
 package router
 
 import (
-	"voice-link/interface/handler"
+	"voice-link/interface/handler/auth"
+	"voice-link/interface/handler/user"
 	authMiddleware "voice-link/interface/middleware"
 
 	"github.com/labstack/echo/v4"
@@ -10,12 +11,14 @@ import (
 
 type Router struct {
 	echo        *echo.Echo
-	userHandler *handler.UserHandler
+	authHandler *auth.AuthHandler
+	userHandler *user.UserHandler
 }
 
-func NewRouter(e *echo.Echo, userHandler *handler.UserHandler) *Router {
+func NewRouter(e *echo.Echo, authHandler *auth.AuthHandler, userHandler *user.UserHandler) *Router {
 	return &Router{
 		echo:        e,
+		authHandler: authHandler,
 		userHandler: userHandler,
 	}
 }
@@ -41,9 +44,13 @@ func (r *Router) setupPublicRoutes(api *echo.Group) {
 	auth := api.Group("/auth")
 	{
 		// ユーザー登録
-		auth.POST("/register", r.userHandler.Register)
+		auth.POST("/register", r.authHandler.Register)
 		// ログイン
-		auth.POST("/login", r.userHandler.Login)
+		auth.POST("/login", r.authHandler.Login)
+		// パスワードリセットリクエスト
+		auth.POST("/password-reset", r.authHandler.RequestPasswordReset)
+		// パスワードリセット確認
+		auth.POST("/password-reset/confirm", r.authHandler.ResetPassword)
 	}
 }
 
