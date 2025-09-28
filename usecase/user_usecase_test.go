@@ -42,6 +42,14 @@ func (m *MockUserRepository) Update(user *model.User) error {
 	return args.Error(0)
 }
 
+func (m *MockUserRepository) FindByPasswordResetToken(token string) (*model.User, error) {
+	args := m.Called(token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
 func (m *MockUserRepository) Delete(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)

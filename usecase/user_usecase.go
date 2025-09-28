@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"os"
 	"time"
@@ -16,6 +18,8 @@ type UserUseCase interface {
 	GetByID(id uint) (*model.User, error)
 	UpdateUser(id uint, name, email string) (*model.User, error)
 	DeleteUser(id uint) error
+	RequestPasswordReset(email string) error
+	ResetPassword(token, newPassword string) error
 }
 
 type userUseCase struct {
@@ -109,4 +113,77 @@ func (u *userUseCase) UpdateUser(id uint, name, email string) (*model.User, erro
 
 func (u *userUseCase) DeleteUser(id uint) error {
 	return u.userRepo.Delete(id)
+}
+
+// generateResetToken は、パスワードリセット用のトークンを生成します
+func (u *userUseCase) generateResetToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+// RequestPasswordReset は、パスワードリセットのリクエストを処理します
+func (u *userUseCase) RequestPasswordReset(email string) error {
+	// ユーザーが存在するかチェック
+	user, err := u.userRepo.FindByEmail(email)
+	if err != nil {
+		// セキュリティ上の理由で、ユーザーが存在しない場合でも成功を返す
+		return nil
+	}
+
+	// リセットトークンを生成
+	token, err := u.generateResetToken()
+	if err != nil {
+		return err
+	}
+
+	// トークンの有効期限を設定（1時間）
+	expires := time.Now().Add(time.Hour)
+
+	// ユーザー情報を更新
+	user.PasswordResetToken = &token
+	user.PasswordResetExpires = &expires
+
+	if err := u.userRepo.Update(user); err != nil {
+		return err
+	}
+
+	// TODO: 実際の実装では、ここでメール送信を行う
+	// 今回はログ出力のみ
+	// log.Printf("Password reset token for %s: %s", email, token)
+
+	return nil
+}
+
+// ResetPassword は、パスワードリセットトークンを使用してパスワードをリセットします
+func (u *userUseCase) ResetPassword(token, newPassword string) error {
+	// トークンでユーザーを検索
+	user, err := u.userRepo.FindByPasswordResetToken(token)
+	if err != nil {
+		return errors.New("invalid or expired reset token")
+	}
+
+	// トークンの有効期限をチェック
+	if user.PasswordResetExpires == nil || time.Now().After(*user.PasswordResetExpires) {
+		return errors.New("reset token has expired")
+	}
+
+	// 新しいパスワードをハッシュ化
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// パスワードを更新し、リセットトークンをクリア
+	user.Password = string(hashedPassword)
+	user.PasswordResetToken = nil
+	user.PasswordResetExpires = nil
+
+	if err := u.userRepo.Update(user); err != nil {
+		return err
+	}
+
+	return nil
 }
